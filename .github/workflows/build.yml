@@ -1,0 +1,92 @@
+name: build
+
+# Branch pushes and pull requests: Debug and Release builds, kept as workflow
+# artifacts. A pushed tag v* (e.g. v0.0.1): the Release build only, with the
+# Game Bar widget and the setup (MSI), published as a GitHub release.
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        configuration: ${{ fromJSON(startsWith(github.ref, 'refs/tags/v') && '["Release"]' || '["Debug","Release"]') }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ${{ matrix.configuration }}
+        shell: pwsh
+        run: ./build.ps1 -Configuration ${{ matrix.configuration }} -Output out/OpenBoxAchievements
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenBoxAchievements-${{ matrix.configuration }}
+          path: out/OpenBoxAchievements/
+          retention-days: 30
+
+      # The Game Bar widget, signed with the key from the repository secrets
+      # WIDGET_PFX_BASE64 and WIDGET_PFX_PASSWORD (required for a release).
+      - name: Build Game Bar widget
+        if: matrix.configuration == 'Release'
+        shell: pwsh
+        env:
+          WIDGET_PFX_BASE64: ${{ secrets.WIDGET_PFX_BASE64 }}
+          WIDGET_PFX_PASSWORD: ${{ secrets.WIDGET_PFX_PASSWORD }}
+        run: |
+          if (-not $env:WIDGET_PFX_BASE64) {
+            if ('${{ github.ref }}' -like 'refs/tags/v*') { throw 'The widget signing secrets are not set.' }
+            Write-Warning 'No widget signing secrets: the setup is built without the widget.'; exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP 'OpenBoxWidget.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WIDGET_PFX_BASE64))
+          try { ./widget/build.ps1 -KeyFile $pfx -Password $env:WIDGET_PFX_PASSWORD -Output out/widget }
+          finally { Remove-Item $pfx -Force }
+
+      # The setup, from the Release build. WiX 3.14.1, checked against its hash.
+      - name: Get WiX 3.14.1
+        if: matrix.configuration == 'Release'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip -OutFile wix.zip
+          if ((Get-FileHash wix.zip -Algorithm SHA256).Hash -ne '6AC824E1642D6F7277D0ED7EA09411A508F6116BA6FAE0AA5F2C7DAA2FF43D31') { throw 'WiX download hash mismatch' }
+          Expand-Archive wix.zip wix
+      - name: Build MSI
+        if: matrix.configuration == 'Release'
+        shell: pwsh
+        run: |
+          $version = if ('${{ github.ref }}' -like 'refs/tags/v*') { '${{ github.ref_name }}'.Substring(1) } else { '0.0.0' }
+          $widget = if (Test-Path out/widget/OpenBoxWidget.msix) { @{ Widget = 'out/widget' } } else { @{} }
+          ./installer/build.ps1 -Wix wix -Version $version -App out/OpenBoxAchievements -Output out/msi @widget
+      - uses: actions/upload-artifact@v4
+        if: matrix.configuration == 'Release'
+        with:
+          name: OpenBoxAchievements-msi
+          path: out/msi/*.msi
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: OpenBoxAchievements-Release
+          path: OpenBoxAchievements
+      - uses: actions/download-artifact@v4
+        with:
+          name: OpenBoxAchievements-msi
+          path: msi
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          zip -r "OpenBoxAchievements-${TAG#v}.zip" OpenBoxAchievements
+          gh release create "$TAG" "OpenBoxAchievements-${TAG#v}.zip" msi/*.msi \
+            --repo "$GITHUB_REPOSITORY" --title "OpenBox Achievements ${TAG#v}" --generate-notes

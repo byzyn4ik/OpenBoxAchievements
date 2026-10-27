@@ -1,0 +1,70 @@
+<Page
+    x:Class="OpenBoxWidget.WidgetPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="Transparent"
+    XYFocusKeyboardNavigation="Enabled">
+    <!-- Laid out as the native Xbox Achievements widget. -->
+    <Grid Padding="24,8,16,8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Button x:Name="AllButton" Grid.Row="0" HorizontalAlignment="Stretch" Height="44" CornerRadius="6" Margin="0,0,8,16"
+                Background="#33FFFFFF" BorderBrush="#40FFFFFF" BorderThickness="1" Click="OnAll">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock x:Name="AllText" Text="All achievements" FontSize="16" VerticalAlignment="Center" />
+                <FontIcon Glyph="&#xE8A7;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" />
+            </StackPanel>
+        </Button>
+        <Grid x:Name="GameRow" Grid.Row="1" Margin="0,0,8,16" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="76" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Width="76" Height="76" CornerRadius="6" Background="#22FFFFFF">
+                <Image x:Name="BoxArt" Stretch="UniformToFill" />
+            </Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="6">
+                <TextBlock x:Name="GameName" FontSize="21" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <StackPanel x:Name="GameStats" Orientation="Horizontal" Spacing="8" />
+            </StackPanel>
+        </Grid>
+        <Grid x:Name="FilterRow" Grid.Row="2" Margin="0,0,8,8" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="44" />
+            </Grid.ColumnDefinitions>
+            <ComboBox x:Name="Filter" HorizontalAlignment="Stretch" Height="44" CornerRadius="6" SelectedIndex="0" SelectionChanged="OnFilter">
+                <ComboBoxItem Content="All" />
+                <ComboBoxItem Content="Locked" />
+                <ComboBoxItem Content="Unlocked" />
+                <ComboBoxItem Content="Rare" />
+            </ComboBox>
+            <Button x:Name="SortButton" Grid.Column="1" Width="44" Height="44" CornerRadius="6" Padding="0" Background="#33FFFFFF"
+                    BorderBrush="#40FFFFFF" BorderThickness="1" Click="OnSort" ToolTipService.ToolTip="Sort">
+                <FontIcon Glyph="&#xE8CB;" FontFamily="Segoe MDL2 Assets" FontSize="16" />
+            </Button>
+        </Grid>
+        <!-- Shown while no game is being played. -->
+        <StackPanel x:Name="NoGame" Grid.Row="1" Grid.RowSpan="3" Visibility="Collapsed" VerticalAlignment="Center" Spacing="12" Margin="0,0,8,48">
+            <FontIcon Glyph="&#xE7FC;" FontFamily="Segoe MDL2 Assets" FontSize="40" Opacity="0.6" />
+            <TextBlock x:Name="NoGameTitle" Text="No active game" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+            <TextBlock x:Name="NoGameHint" FontSize="15" Opacity="0.75" TextWrapping="WrapWholeWords" TextAlignment="Center" HorizontalAlignment="Center"
+                       Text="Start a game to see its achievements here." />
+        </StackPanel>
+        <!-- A list of focusable items, so a gamepad can move through it. -->
+        <ListView x:Name="List" Grid.Row="3" SelectionMode="None" IsItemClickEnabled="False" Margin="-12,0,0,0"
+                  XYFocusKeyboardNavigation="Enabled">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="Padding" Value="12,0,12,0" />
+                    <Setter Property="IsTabStop" Value="True" />
+                </Style>
+            </ListView.ItemContainerStyle>
+        </ListView>
+    </Grid>
+</Page>

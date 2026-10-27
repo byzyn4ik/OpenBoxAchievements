@@ -1,0 +1,34 @@
+# Build output
+bin/
+bin-debug/
+obj/
+*.exe
+*.pdb
+
+# Never commit Xbox content or personal data; only manifests belong in games/.
+games/**/achievement_data.json
+games/**/state.json
+games/**/*.jpg
+games/**/*.png
+account.bin
+openbox.ini
+*.log
+
+# Local test leftovers
+out/
+patched/
+ipc-check/
+games/patched/
+*.bak*
+*.tmp
+
+# Installer build output
+installer/bin/
+installer/obj/
+
+# Widget: build output, and never its signing key
+widget/bin/
+widget/obj/
+widget/out/
+widget/package/
+*.pfx

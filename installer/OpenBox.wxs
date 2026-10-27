@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- OpenBox Achievements setup: a per-user MSI (no administrator needed for
+     the app). Features: the app with its Start menu shortcut, and, when built
+     with a widget package (WidgetDir defined), the Xbox Game Bar widget.
+     build.ps1 harvests the app (and widget) folders into AppFiles.wxs (and
+     WidgetFiles.wxs). -->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <Product Id="*" Name="OpenBox Achievements" Language="1033" Version="$(var.Version)"
+           Manufacturer="OpenBox Achievements" UpgradeCode="7A1E3C2B-5D84-4F6E-9B21-3C0D8E4F5A61">
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser" InstallPrivileges="limited"
+             Description="OpenBox Achievements $(var.Version)" />
+    <MajorUpgrade DowngradeErrorMessage="A newer OpenBox Achievements is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Icon Id="OpenBox.ico" SourceFile="$(var.Icon)" />
+    <Property Id="ARPPRODUCTICON" Value="OpenBox.ico" />
+    <Property Id="ARPNOMODIFY" Value="0" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="ProgramsFolder" Name="Programs">
+          <Directory Id="INSTALLFOLDER" Name="OpenBox Achievements">
+            <Directory Id="WIDGETFOLDER" Name="widget" />
+          </Directory>
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder" />
+    </Directory>
+
+    <!-- The Start menu shortcut and the link the widget opens. -->
+    <DirectoryRef Id="ProgramMenuFolder">
+      <Component Id="Shortcut" Guid="4C9D2E71-8B3A-4F5D-A6E2-9D1F0B7C3E58">
+        <Shortcut Id="AppShortcut" Name="OpenBox Achievements" Description="Your achievements"
+                  Target="[INSTALLFOLDER]OpenBox Achievements.exe" WorkingDirectory="INSTALLFOLDER" Icon="OpenBox.ico" />
+        <RegistryValue Root="HKCU" Key="Software\OpenBox Achievements" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+        <!-- Where it is, for Forza Horizon 2 Builder and the game's mod. -->
+        <RegistryValue Root="HKCU" Key="Software\OpenBox Achievements" Name="InstallFolder" Type="string" Value="[INSTALLFOLDER]" />
+        <RegistryKey Root="HKCU" Key="Software\Classes\openbox-achievements" ForceDeleteOnUninstall="yes">
+          <RegistryValue Type="string" Value="URL:OpenBox Achievements" />
+          <RegistryValue Name="URL Protocol" Type="string" Value="" />
+          <RegistryValue Key="shell\open\command" Type="string" Value="&quot;[INSTALLFOLDER]OpenBox Achievements.exe&quot; &quot;%1&quot;" />
+        </RegistryKey>
+        <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
+<?ifdef WidgetDir?>
+        <RemoveFolder Id="RemoveWidgetFolder" Directory="WIDGETFOLDER" On="uninstall" />
+<?endif?>
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="App" Title="OpenBox Achievements" Level="1" Absent="disallow" AllowAdvertise="no"
+             Description="The app, with its Start menu shortcut." ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="Shortcut" />
+    </Feature>
+<?ifdef WidgetDir?>
+    <Feature Id="Widget" Title="Xbox Game Bar widget" Level="1" AllowAdvertise="no"
+             Description="Your achievements in Xbox Game Bar (Win+G). Trusting the widget's certificate asks for administrator approval once.">
+      <ComponentGroupRef Id="WidgetFiles" />
+    </Feature>
+
+    <!-- The widget is a Windows app package: installed for the user after the
+         files are in place, removed before they go. -->
+    <SetProperty Id="InstallWidget" Sequence="execute" Before="InstallWidget"
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[WIDGETFOLDER]install-widget.ps1&quot; -Folder &quot;[WIDGETFOLDER].&quot;" />
+    <CustomAction Id="InstallWidget" BinaryKey="WixCA" DllEntry="WixQuietExec64" Execute="deferred" Impersonate="yes" Return="ignore" />
+    <SetProperty Id="RemoveWidget" Sequence="execute" Before="RemoveWidget"
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[WIDGETFOLDER]install-widget.ps1&quot; -Uninstall" />
+    <CustomAction Id="RemoveWidget" BinaryKey="WixCA" DllEntry="WixQuietExec64" Execute="deferred" Impersonate="yes" Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom Action="InstallWidget" After="InstallFiles">&amp;Widget=3</Custom>
+      <Custom Action="RemoveWidget" Before="RemoveFiles">!Widget=3 AND &amp;Widget=2</Custom>
+    </InstallExecuteSequence>
+<?endif?>
+
+    <!-- Setup UI: welcome, features and folder, then install; no licence page. -->
+    <UIRef Id="WixUI_FeatureTree" />
+    <UI>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="CustomizeDlg" Order="3">1</Publish>
+      <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="3">1</Publish>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="SetLaunchTarget" Order="1">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApp" Order="2">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+    </UI>
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Start OpenBox Achievements" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <CustomAction Id="SetLaunchTarget" Property="WixShellExecTarget" Value="[INSTALLFOLDER]OpenBox Achievements.exe" />
+    <CustomAction Id="LaunchApp" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
+    <WixVariable Id="WixUIBannerBmp" Value="$(var.Banner)" />
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.Dialog)" />
+  </Product>
+</Wix>
