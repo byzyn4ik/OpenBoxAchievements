@@ -86,7 +86,13 @@ The app is in English or Ukrainian: the Windows display language by default,
 or Settings → Language. Achievement texts are shown as Xbox provides them.
 
 Command line: `--game <id>` opens that game, `--background` starts in the
-tray, `--test-toast` shows a sample unlock.
+tray, `--test-toast` shows a sample unlock. `--import --game <id>` opens the
+wizard straight on loading that game from Xbox (sign-in, then the download;
+the Xbox title ID comes from its manifest), e.g. `--import --game fh2` for
+Forza Horizon 2 – installers use it when the game has no texts and art yet.
+Without `--game`, or for a game OpenBox does not know, `--import` opens the
+Add a game wizard. If OpenBox is already running, the running copy opens the
+wizard.
 
 ## Privacy
 

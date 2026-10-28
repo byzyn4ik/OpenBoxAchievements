@@ -47,7 +47,9 @@ namespace OpenBoxAchievements
     /// the app. A second start (or the in-game button, through
     /// Local\OpenBoxAchievements.Show) brings up the page.
     /// --background starts in the tray only; --game <id> opens (or, with
-    /// --background, defaults to) that game; --test-toast shows a sample toast.
+    /// --background, defaults to) that game; --import [--game <id>] opens the
+    /// wizard to load that game from Xbox (or to add a game); --test-toast
+    /// shows a sample toast.
     sealed class App : Application
     {
         List<Game> games = new List<Game>();
@@ -101,9 +103,9 @@ namespace OpenBoxAchievements
             if (!created)
             {
                 // The running copy may take the foreground: this start was the user's.
-                if (!args.Contains("--background"))
+                if (!args.Contains("--background") || args.Contains("--import"))
                 {
-                    WriteRequest(RequestedGame(args));
+                    WriteRequest((args.Contains("--import") ? ImportPrefix : "") + RequestedGame(args));
                     AllowSetForegroundWindow(-1);
                     showSignal.Set();
                 }
@@ -146,7 +148,7 @@ namespace OpenBoxAchievements
             TrayMenu();
             tray.DoubleClick += (s, e) => ShowViewer(null);
 
-            var waiter = new Thread(() => { while (true) { showSignal.WaitOne(); string id = TakeRequest(); Dispatcher.BeginInvoke(new Action(() => ShowViewer(Find(id) ?? Running())));  } }) { IsBackground = true };
+            var waiter = new Thread(() => { while (true) { showSignal.WaitOne(); string id = TakeRequest(); Dispatcher.BeginInvoke(new Action(() => OnRequest(id))); } }) { IsBackground = true };
             waiter.Start();
 
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
@@ -159,7 +161,31 @@ namespace OpenBoxAchievements
                 var sample = games[0].Catalog.Achievements.FirstOrDefault() ?? new Achievement { Id = "0", Name = Lang.T("Sample achievement", "Приклад досягнення"), Gamerscore = 10 };
                 Toast.Show(sample, games[0].Art(sample));
             }
-            if (!args.Contains("--background")) ShowViewer(null);
+            if (args.Contains("--import")) Import(RequestedGame(args));
+            else if (!args.Contains("--background")) ShowViewer(null);
+        }
+
+        /// A second start's request: a game id, or "import:<id>" (--import).
+        const string ImportPrefix = "import:";
+
+        void OnRequest(string id)
+        {
+            if (id != null && id.StartsWith(ImportPrefix, StringComparison.Ordinal))
+            {
+                string game = id.Substring(ImportPrefix.Length);
+                Import(game.Length > 0 ? game : null);
+            }
+            else ShowViewer(Find(id) ?? Running());
+        }
+
+        /// --import: a known game (its manifest has the Xbox title ID) opens
+        /// the wizard on loading it from Xbox; otherwise the Add game wizard.
+        void Import(string id)
+        {
+            var game = Find(id);
+            Log.Write("import requested (" + (id ?? "no game") + (game == null ? ", not found" : "") + ")");
+            var wizard = OpenWizard(game);
+            Foreground(new System.Windows.Interop.WindowInteropHelper(wizard).Handle);
         }
 
         /// The tray icon's menu, in the current language.
@@ -239,19 +265,17 @@ namespace OpenBoxAchievements
         }
 
         /// The Add game wizard, above the page when it is open.
-        void AddGame()
-        {
-            var wizard = new Wizard(settings, Reload) { Topmost = viewer != null };
-            wizard.Show();
-            wizard.Activate();
-        }
+        void AddGame() => OpenWizard(null);
 
         /// The wizard's restore mode: texts and art for a game that has only ids.
-        void LoadData(Game game)
+        void LoadData(Game game) => OpenWizard(game);
+
+        Wizard OpenWizard(Game restore)
         {
-            var wizard = new Wizard(settings, Reload, game) { Topmost = viewer != null };
+            var wizard = new Wizard(settings, Reload, restore) { Topmost = viewer != null };
             wizard.Show();
             wizard.Activate();
+            return wizard;
         }
 
         void OpenSettings()
