@@ -16,7 +16,7 @@ shows them.
 
 | Game | Support |
 |---|---|
-| Forza Horizon 2 | full: unlocks while you play, with [Forza Horizon 2 Extra Options](https://github.com/RokkuDayo/ForzaHorizon2_ExtraOptions) and its achievements DLL |
+| Forza Horizon 2 | full: unlocks while you play, with [Forza Horizon 2 Extra Options](https://github.com/RokkuDayo/ForzaHorizon2_ExtraOptions) and the [OpenBox Achievements plugin](https://github.com/byzyn4ik/FH2-ExtraOptions-OpenBox-Achievements-) |
 | Forza Horizon 2 Presents Fast & Furious | base |
 | Forza Horizon 3 | base |
 | Forza Motorsport 5 | base |
@@ -101,8 +101,11 @@ for your Windows account.
 OpenBox has no achievement rules. Each game's mod decides when an achievement
 unlocks and sends OpenBox only the results over the local pipe
 `\\.\pipe\OpenBoxAchievements.Events.v1`; OpenBox records them and shows the
-pop-up, the page and the widget. For Forza Horizon 2 that mod is Extra Options
-with `achievements\fh2-achievements.dll`, whose rules ship with the mod.
+pop-up, the page and the widget. For Forza Horizon 2, achievements reach
+OpenBox through [Forza Horizon 2 Extra Options](https://github.com/RokkuDayo/ForzaHorizon2_ExtraOptions)
+0.3.2+ with the [OpenBox Achievements plugin](https://github.com/byzyn4ik/FH2-ExtraOptions-OpenBox-Achievements-)
+in its `mods` folder: the plugin evaluates the FH2 rules in game (they ship
+with the plugin) and sends OpenBox only the unlocks and progress.
 
 - **Manifests** (`games\<id>\achievement_manifest.json`) list each game's
   achievement IDs and nothing else, so they can be shared. See
