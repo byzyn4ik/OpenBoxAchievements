@@ -21,6 +21,10 @@ jobs:
       - name: Build ${{ matrix.configuration }}
         shell: pwsh
         run: ./build.ps1 -Configuration ${{ matrix.configuration }} -Output out/OpenBoxAchievements
+      - name: Tests
+        if: matrix.configuration == 'Debug'
+        shell: pwsh
+        run: ./run-tests.ps1 -NoPlugin
       - uses: actions/upload-artifact@v4
         with:
           name: OpenBoxAchievements-${{ matrix.configuration }}

@@ -49,7 +49,8 @@ namespace OpenBoxAchievements
     /// --background starts in the tray only; --game <id> opens (or, with
     /// --background, defaults to) that game; --import [--game <id>] opens the
     /// wizard to load that game from Xbox (or to add a game); --test-toast
-    /// shows a sample toast.
+    /// shows a sample toast; --exit closes the running copy. Tests:
+    /// --sandbox <folder> [--bus-timeout <seconds>] (see Sandbox).
     sealed class App : Application
     {
         List<Game> games = new List<Game>();
@@ -97,9 +98,15 @@ namespace OpenBoxAchievements
         static int Main(string[] args)
         {
             args = FromLink(args);
-            var mutex = new Mutex(true, @"Local\OpenBoxAchievements", out bool created);
-            showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\OpenBoxAchievements.Show");
-            request = System.IO.MemoryMappedFiles.MemoryMappedFile.CreateOrOpen(@"Local\OpenBoxAchievements.Game", 512);
+            string instance = Sandbox(args);
+            var mutex = new Mutex(true, @"Local\OpenBoxAchievements" + instance, out bool created);
+            showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\OpenBoxAchievements.Show" + instance);
+            request = System.IO.MemoryMappedFiles.MemoryMappedFile.CreateOrOpen(@"Local\OpenBoxAchievements.Game" + instance, 512);
+            if (args.Contains("--exit"))
+            {
+                if (!created) { WriteRequest(ExitRequest); showSignal.Set(); }
+                return 0;
+            }
             if (!created)
             {
                 // The running copy may take the foreground: this start was the user's.
@@ -120,10 +127,34 @@ namespace OpenBoxAchievements
             return code;
         }
 
+        static bool sandboxed;
+
+        /// --sandbox <folder> (tests): the data in <folder>\data, the widget's
+        /// folder in <folder>\Packages, and a pipe and instance names of its
+        /// own (suffixed with the folder's name), so a running OpenBox and the
+        /// user's data are not touched; the link is not registered.
+        /// --bus-timeout <seconds> there shortens Bus.Timeout. "" without it.
+        static string Sandbox(string[] args)
+        {
+            int i = Array.IndexOf(args, "--sandbox");
+            if (i < 0 || i + 1 >= args.Length) return "";
+            string folder = Path.GetFullPath(args[i + 1]).TrimEnd('\\');
+            string name = "." + System.Text.RegularExpressions.Regex.Replace(Path.GetFileName(folder), "[^A-Za-z0-9_-]", "_");
+            Paths.Data = Path.Combine(folder, "data");
+            Widget.Packages = Path.Combine(folder, "Packages");
+            EventInbox.PipeName += name;
+            int t = Array.IndexOf(args, "--bus-timeout");
+            if (t >= 0 && t + 1 < args.Length && double.TryParse(args[t + 1], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double seconds) && seconds > 0)
+                Bus.Timeout = TimeSpan.FromSeconds(seconds);
+            sandboxed = true;
+            return name;
+        }
+
         void Start(string[] args)
         {
             Paths.MoveOldFiles();
-            RegisterLink();
+            if (!sandboxed) RegisterLink();
             settings = Settings.Load(Paths.Data);
             Lang.Apply(settings.Language);
             Toast.Sound = settings.ToastSound;
@@ -165,12 +196,17 @@ namespace OpenBoxAchievements
             else if (!args.Contains("--background")) ShowViewer(null);
         }
 
-        /// A second start's request: a game id, or "import:<id>" (--import).
-        const string ImportPrefix = "import:";
+        /// A second start's request: a game id, "import:<id>" (--import) or "exit:" (--exit).
+        const string ImportPrefix = "import:", ExitRequest = "exit:";
 
         void OnRequest(string id)
         {
-            if (id != null && id.StartsWith(ImportPrefix, StringComparison.Ordinal))
+            if (id == ExitRequest)
+            {
+                tray.Visible = false;
+                Shutdown();
+            }
+            else if (id != null && id.StartsWith(ImportPrefix, StringComparison.Ordinal))
             {
                 string game = id.Substring(ImportPrefix.Length);
                 Import(game.Length > 0 ? game : null);
@@ -201,7 +237,7 @@ namespace OpenBoxAchievements
             old?.Dispose();
         }
 
-        Game Running() =>games.FirstOrDefault(g => g.IsRunning);
+        Game Running() => games.FirstOrDefault(g => g.IsRunning);
 
         Game Find(string id) => id == null ? null : games.FirstOrDefault(g => string.Equals(g.Info.Id, id, StringComparison.OrdinalIgnoreCase));
 
@@ -338,14 +374,19 @@ namespace OpenBoxAchievements
             double elapsed = Math.Min(10, (now - lastTick).TotalSeconds);
             lastTick = now;
             bool changed = false, progressed = false, save = (now - lastSave).TotalSeconds >= 30;
+            Game playing = null;
             foreach (var game in games)
             {
-                if (game.IsRunning)
+                bool running = game.IsRunning;
+                if (running)
                 {
                     game.State.SecondsPlayed += elapsed;
                     last = game;
+                    playing = playing ?? game;
                     if (save) game.SaveState();
                 }
+                // Started or ended: the time played is saved now.
+                if (running ? playingIds.Add(game.Info.Id) : playingIds.Remove(game.Info.Id)) game.SaveState();
                 List<Achievement> unlocked;
                 try { unlocked = game.Results.Poll(); }
                 catch (IOException) { continue; }
@@ -359,7 +400,6 @@ namespace OpenBoxAchievements
             if (changed) viewer?.Refresh();
             else if (progressed) viewer?.Stale();
             // The Game Bar widget: on any change, when a game starts or stops, and each minute.
-            var playing = Running();
             if (changed || progressed || (playing != null) != widgetPlaying || ++widgetTicks % 40 == 1)
                 Widget.Write(playing ?? last ?? games.FirstOrDefault(), playing != null);
             widgetPlaying = playing != null;
@@ -367,6 +407,7 @@ namespace OpenBoxAchievements
 
         int widgetTicks;
         bool widgetPlaying;
+        readonly HashSet<string> playingIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         /// Results from a game's achievement mod (GameMessages):
         /// recorded, then toasts, page and widget. True: answer "ok".

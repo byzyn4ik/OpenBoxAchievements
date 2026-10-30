@@ -20,15 +20,29 @@ end
 
 | Line | Meaning |
 |---|---|
-| `hello <game> <protocol> <producer>` | the mod is connected (logged) |
+| `hello <game> <protocol> <producer> [pid=<n>]` | the mod is connected (logged); `pid` is the game's process id |
 | `unlocked <game> <id> [<time>]` | unlocked in game (UTC). Recorded once with a pop-up; a resend is ignored |
 | `progress <game> <id> <current>/<target>` | progress shown on the page and widget; OpenBox keeps the last value |
+| `alive <game> [pid=<n>]` | heartbeat: the game is still played (older OpenBox versions ignore it) |
+| `bye <game>` | the game is no longer played |
 | `end` | end of the message; OpenBox answers `ok` |
 
 `<game>` is the game's folder name under `games\` (for Forza Horizon 2:
 `fh2`). The mod resends unlocks until it has an `ok`, so none is lost while
 OpenBox is closed, and none is counted twice; on connecting it sends all its
 progress.
+
+## Which game is played
+
+A game counts as played (the Game Bar widget's active game, time played, the
+page opening over the game) while its mod is on the pipe: every line that
+names the game keeps it connected. A mod with nothing to send says
+`alive <game> pid=<n>` (with `end`) every few seconds; the FH2 plugin does
+every 5 seconds. The game is no longer played after `bye <game>`, as soon as
+the process given by `pid` exits, or 15 seconds after its last line. A game
+whose manifest names its EXE (`Process`) also counts while that EXE runs: for
+games without a mod on the pipe. FH2's manifest names none, since one
+launcher (Azimuth) runs several games.
 
 ## The mod's own state
 

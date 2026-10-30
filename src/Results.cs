@@ -10,12 +10,15 @@ namespace OpenBoxAchievements
 {
     /// Messages of a game's achievement mod over the pipe (EventInbox;
     /// docs\EVENTS.md), one per line:
-    ///   hello <game> <protocol> <producer>
+    ///   hello <game> <protocol> <producer> [pid=<n>]
     ///   unlocked <game> <id> [<ISO 8601 UTC time>]
     ///   progress <game> <id> <current>/<target>
+    ///   alive <game> [pid=<n>]
+    ///   bye <game>
     ///   end
     /// Ids and times are percent-encoded. An unlock is recorded once (a resend
-    /// is ignored), so nothing is counted or shown twice.
+    /// is ignored), so nothing is counted or shown twice. Every line naming a
+    /// game tells the Bus that it is being played; "bye" that it is not.
     static class GameMessages
     {
         /// Applies them (UI thread). changed: games whose state changed;
@@ -32,10 +35,18 @@ namespace OpenBoxAchievements
                 var game = games.FirstOrDefault(g => string.Equals(g.Info.Id, words[1], StringComparison.OrdinalIgnoreCase));
                 if (game == null) continue;
                 string id = words.Length > 2 ? Uri.UnescapeDataString(words[2]) : null;
+                if (words[0] == "bye")
+                {
+                    Bus.Gone(game.Info.Id);
+                    Log.Write(game.Info.Id + ": disconnected");
+                    continue;
+                }
+                bool connected = Bus.Seen(game.Info.Id, words[0] == "hello" || words[0] == "alive" ? Bus.ProcessOf(words) : 0);
                 switch (words[0])
                 {
                     case "hello":
-                        Log.Write(game.Info.Id + ": connected: " + string.Join(" ", words.Skip(2)));
+                    case "alive":
+                        if (connected) Log.Write(game.Info.Id + ": connected: " + string.Join(" ", words.Skip(2)));
                         break;
                     case "unlocked" when id != null:
                         var achievement = game.Results.Unlocked(id, words.Length > 3 ? Uri.UnescapeDataString(words[3]) : null);

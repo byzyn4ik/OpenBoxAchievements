@@ -9,7 +9,6 @@ freely: no achievement texts or art.
 {
   "Name": "Forza Horizon 2",
   "XboxTitleId": 446059611,
-  "Process": "Forza Horizon 2",
   "Achievements": ["1", "2", "3"]
 }
 ```
@@ -18,7 +17,7 @@ freely: no achievement texts or art.
 |---|---|
 | `Name` | the game's name |
 | `XboxTitleId` | the Xbox Live title ID (decimal); `0` for a manual game. Used to load the texts and art from Xbox |
-| `Process` | the game's EXE name without `.exe`: time played, and which game the page opens on |
+| `Process` | optional: the game's EXE name without `.exe`, for a game without a mod on the pipe: while it runs, the game is played (time played, the widget, which game the page opens on). A game whose mod talks to OpenBox needs none (see [EVENTS.md](EVENTS.md)) |
 | `Achievements` | the achievement IDs, as on Xbox Live (or `1`, `2`, … for a manual game) |
 
 OpenBox has no achievement rules: the game's mod decides unlocks and sends

@@ -86,7 +86,7 @@ The app is in English or Ukrainian: the Windows display language by default,
 or Settings → Language. Achievement texts are shown as Xbox provides them.
 
 Command line: `--game <id>` opens that game, `--background` starts in the
-tray, `--test-toast` shows a sample unlock. `--import --game <id>` opens the
+tray, `--test-toast` shows a sample unlock, `--exit` closes the running copy. `--import --game <id>` opens the
 wizard straight on loading that game from Xbox (sign-in, then the download;
 the Xbox title ID comes from its manifest), e.g. `--import --game fh2` for
 Forza Horizon 2 – installers use it when the game has no texts and art yet.
@@ -126,9 +126,11 @@ with the plugin) and sends OpenBox only the unlocks and progress.
 
 1. Settings → **Add game…** → Xbox game. This creates
    `games\<id>\achievement_manifest.json` with the achievement IDs.
-2. Set `Process` in it to the game's EXE name (for time played).
-3. Have the game's mod send its results (see [docs/EVENTS.md](docs/EVENTS.md)).
-4. Share the manifest: pull requests are welcome.
+2. Have the game's mod send its results (see [docs/EVENTS.md](docs/EVENTS.md)):
+   while it is on the pipe, the game counts as played (time played, the
+   widget). Without a mod, set `Process` in the manifest to the game's EXE
+   name instead.
+3. Share the manifest: pull requests are welcome.
 
 ## Building
 
@@ -154,7 +156,25 @@ is not in the repository. Build it and pass it to the setup:
 .\installer\build.ps1 -Wix <wix314 folder> -Version 0.0.1 -Widget widget\package
 ```
 
-GitHub Actions builds Debug and Release on every branch push; a `v*` tag
+## Tests
+
+```powershell
+.\run-tests.ps1
+```
+
+builds the app and runs it headless in a sandbox (`--sandbox <folder>`: its
+own data, widget folder, pipe and instance names, so a running OpenBox and
+your data are not touched). Fake game mods talk to its pipe, and the checks
+read what the Game Bar widget would show and the time played: a game is
+active while its mod is on the pipe (heartbeats keep it, `bye`, the timeout
+and the game process's exit end it); FH2 is never active by the process name
+alone; a game with `Process` in its manifest is active while that EXE runs;
+another game's id does not activate FH2; time played grows only while
+active. When the [FH2 plugin](https://github.com/byzyn4ik/FH2-ExtraOptions-OpenBox-Achievements-)
+is built beside this repo (or `-Plugin <its out folder>`), its real DLL is
+also run against the app.
+
+GitHub Actions builds Debug and Release on every branch push and runs the tests; a `v*` tag
 builds the Release, the widget and the MSI and publishes them as a release
 (the signing key comes from the repository secrets `WIDGET_PFX_BASE64` and
 `WIDGET_PFX_PASSWORD`). The icon, the ring artwork and the unlock chime are

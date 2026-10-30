@@ -19,9 +19,12 @@ namespace OpenBoxAchievements
         static readonly JavaScriptSerializer json = new JavaScriptSerializer();
         static string lastText;
 
+        /// Where Windows keeps the packages' data (tests: a folder of their own).
+        public static string Packages = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Packages");
+
         static string Folder()
         {
-            string packages = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Packages");
+            string packages = Packages;
             if (!Directory.Exists(packages)) return null;
             string package = Directory.GetDirectories(packages, PackagePrefix + "*").FirstOrDefault();
             return package == null ? null : Path.Combine(package, "LocalState");

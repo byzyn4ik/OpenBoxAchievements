@@ -15,7 +15,7 @@ namespace OpenBoxAchievements
     {
         public string Name;
         public uint XboxTitleId;            // 0 for a manual game
-        public string Process;              // the game's EXE name without .exe: time played, the page over the game
+        public string Process;              // the EXE name without .exe, for a game without a mod on the pipe: time played, the page over the game
         public string[] Achievements = new string[0]; // the achievement ids
 
         [ScriptIgnore] public string Id;    // the folder name
@@ -64,7 +64,7 @@ namespace OpenBoxAchievements
     {
         public static readonly string App = AppDomain.CurrentDomain.BaseDirectory;
         public static readonly string Games = Path.Combine(App, "games");
-        public static readonly string Data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenBoxAchievements");
+        public static string Data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenBoxAchievements");
         public static string LocalGame(string id) => Path.Combine(Data, "games", id);
         /// The mod's own state (FH2: fh2-achievements.dll writes it, OpenBox
         /// only reads its unlocks).
@@ -277,7 +277,9 @@ namespace OpenBoxAchievements
 
         string Image(string name) => FindFile(name + ".jpg") ?? FindFile(name + ".png");
 
-        public bool IsRunning => !string.IsNullOrEmpty(Info.Process) &&
-            System.Diagnostics.Process.GetProcessesByName(Info.Process).Length > 0;
+        /// Being played: its mod is connected over the pipe (Bus), or, for a
+        /// game whose manifest names its EXE (Process), that EXE is running.
+        public bool IsRunning => Bus.Connected(Info.Id) || (!string.IsNullOrEmpty(Info.Process) &&
+            System.Diagnostics.Process.GetProcessesByName(Info.Process).Length > 0);
     }
 }
